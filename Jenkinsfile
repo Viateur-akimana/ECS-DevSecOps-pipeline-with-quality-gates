@@ -162,8 +162,11 @@ pipeline {
                 }
                 stage('SAST (SonarQube)') {
                     steps {
-                        withSonarQubeEnv('SonarQube') {
-                            sh "sonar-scanner -Dsonar.projectKey=secure-webapp -Dsonar.projectVersion=${env.IMAGE_TAG}"
+                        script {
+                            def scannerHome = tool 'SonarQube Scanner'
+                            withSonarQubeEnv('SonarQube') {
+                                sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=secure-webapp -Dsonar.projectVersion=${env.IMAGE_TAG}"
+                            }
                         }
                     }
                 }
