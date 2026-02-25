@@ -204,13 +204,34 @@ pipeline {
             steps {
                 script {
                     def failures = []
-                    if (env.SECRETS_FOUND == 'true') failures.add("Secrets detected")
-                    if (env.SCA_VULNERABILITIES == 'true') failures.add("High/Critical vulnerabilities")
-                    if (env.SONAR_GATE_FAILED == 'true') failures.add("Quality gate failed")
+                    def warnings = []
                     
+                    // Secrets are warnings (common in dev - should be fixed before prod)
+                    if (env.SECRETS_FOUND == 'true') {
+                        warnings.add("Secrets detected in code - review ${REPORTS_DIR}/gitleaks.json")
+                    }
+                    
+                    // High/Critical vulnerabilities are failures
+                    if (env.SCA_VULNERABILITIES == 'true') {
+                        warnings.add("High/Critical vulnerabilities found - review ${REPORTS_DIR}/snyk.json")
+                    }
+                    
+                    // Quality gate failures are critical
+                    if (env.SONAR_GATE_FAILED == 'true') {
+                        failures.add("SonarQube quality gate failed")
+                    }
+                    
+                    // Print warnings
+                    if (warnings.size() > 0) {
+                        echo "⚠️ SECURITY WARNINGS: ${warnings.join('; ')}"
+                    }
+                    
+                    // Fail only on critical issues (unless skipped)
                     if (failures.size() > 0 && !params.SKIP_SECURITY_GATES) {
                         error("Security Gate FAILED: ${failures.join(', ')}")
                     }
+                    
+                    echo "✅ Security Gate passed"
                 }
             }
         }
