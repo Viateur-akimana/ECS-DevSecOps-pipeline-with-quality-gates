@@ -323,7 +323,7 @@ pipeline {
                             "memory": "512",
                             "executionRoleArn": "arn:aws:iam::${env.AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole",
                             "containerDefinitions": [{
-                                "name": "${params.ECR_REPOSITORY}",
+                                "name": "${params.PROJECT_NAME}-${params.ENVIRONMENT}",
                                 "image": "${env.ECR_IMAGE}:${env.IMAGE_TAG}",
                                 "essential": true,
                                 "portMappings": [{"containerPort": 3000, "protocol": "tcp"}],
