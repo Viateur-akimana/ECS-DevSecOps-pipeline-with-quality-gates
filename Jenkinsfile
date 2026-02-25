@@ -33,7 +33,7 @@ pipeline {
     stages {
         stage('Validate Parameters') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                withCredentials([usernamePassword(credentialsId: 'aws-credentials', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     script {
                         // Set AWS region
                         env.AWS_DEFAULT_REGION = params.AWS_REGION
@@ -92,7 +92,7 @@ pipeline {
                 expression { params.SETUP_BACKEND == true }
             }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                withCredentials([usernamePassword(credentialsId: 'aws-credentials', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     script {
                         echo "Setting up Terraform backend..."
                         sh """
@@ -110,7 +110,7 @@ pipeline {
                 expression { params.DEPLOY_INFRASTRUCTURE == true }
             }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                withCredentials([usernamePassword(credentialsId: 'aws-credentials', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     script {
                         echo "Deploying infrastructure for ${params.ENVIRONMENT}..."
                         sh """
@@ -254,7 +254,7 @@ pipeline {
 
         stage('Push to ECR') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                withCredentials([usernamePassword(credentialsId: 'aws-credentials', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     retry(3) {
                         sh """
                             export AWS_DEFAULT_REGION=${params.AWS_REGION}
@@ -269,7 +269,7 @@ pipeline {
 
         stage('Deploy to ECS') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                withCredentials([usernamePassword(credentialsId: 'aws-credentials', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     script {
                         // Set region
                         env.AWS_DEFAULT_REGION = params.AWS_REGION
@@ -337,7 +337,7 @@ pipeline {
 
         stage('Wait for Deployment') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                withCredentials([usernamePassword(credentialsId: 'aws-credentials', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     script {
                         env.AWS_DEFAULT_REGION = params.AWS_REGION
                         try {
