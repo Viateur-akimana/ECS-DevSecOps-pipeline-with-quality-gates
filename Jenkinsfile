@@ -321,7 +321,8 @@ pipeline {
                             "requiresCompatibilities": ["FARGATE"],
                             "cpu": "256",
                             "memory": "512",
-                            "executionRoleArn": "arn:aws:iam::${env.AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole",
+                            "executionRoleArn": "arn:aws:iam::${env.AWS_ACCOUNT_ID}:role/service-role/ecsTaskExecutionRole",
+                            "taskRoleArn": "arn:aws:iam::${env.AWS_ACCOUNT_ID}:role/ecsTaskRole",
                             "containerDefinitions": [{
                                 "name": "${params.PROJECT_NAME}-${params.ENVIRONMENT}",
                                 "image": "${env.ECR_IMAGE}:${env.IMAGE_TAG}",
