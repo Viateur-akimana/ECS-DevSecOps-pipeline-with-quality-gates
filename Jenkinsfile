@@ -23,8 +23,6 @@ pipeline {
     }
 
     environment {
-        AWS_CREDENTIALS = credentials('aws-credentials')
-        AWS_DEFAULT_REGION = "${params.AWS_REGION}"
         SONAR_HOST_URL = credentials('sonarqube-url')
         SONAR_TOKEN = credentials('sonarqube-token')
         SNYK_TOKEN = credentials('snyk-token')
@@ -35,43 +33,48 @@ pipeline {
     stages {
         stage('Validate Parameters') {
             steps {
-                script {
-                    // Auto-detect AWS Account ID if not provided
-                    if (!params.AWS_ACCOUNT_ID?.trim()) {
-                        env.AWS_ACCOUNT_ID = sh(script: 'aws sts get-caller-identity --query Account --output text', returnStdout: true).trim()
-                        echo "Auto-detected AWS Account ID: ${env.AWS_ACCOUNT_ID}"
-                    } else {
-                        env.AWS_ACCOUNT_ID = params.AWS_ACCOUNT_ID
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                    script {
+                        // Set AWS region
+                        env.AWS_DEFAULT_REGION = params.AWS_REGION
+                        
+                        // Auto-detect AWS Account ID if not provided
+                        if (!params.AWS_ACCOUNT_ID?.trim()) {
+                            env.AWS_ACCOUNT_ID = sh(script: 'aws sts get-caller-identity --query Account --output text', returnStdout: true).trim()
+                            echo "Auto-detected AWS Account ID: ${env.AWS_ACCOUNT_ID}"
+                        } else {
+                            env.AWS_ACCOUNT_ID = params.AWS_ACCOUNT_ID
+                        }
+                        
+                        // Generate backend configuration values
+                        env.TF_STATE_BUCKET = "${params.PROJECT_NAME}-tfstate-${env.AWS_ACCOUNT_ID}"
+                        env.TF_LOCK_TABLE = "${params.PROJECT_NAME}-tf-locks"
+                        env.TF_STATE_KEY = "${params.PROJECT_NAME}/${params.ENVIRONMENT}/terraform.tfstate"
+                        
+                        // Auto-generate ECS names if not provided
+                        env.ECS_CLUSTER = params.ECS_CLUSTER?.trim() ?: "${params.PROJECT_NAME}-${params.ENVIRONMENT}-cluster"
+                        env.ECS_SERVICE = params.ECS_SERVICE?.trim() ?: "${params.PROJECT_NAME}-${params.ENVIRONMENT}-service"
+                        
+                        // Set ECR values
+                        env.ECR_REGISTRY = "${env.AWS_ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com"
+                        env.ECR_IMAGE = "${env.ECR_REGISTRY}/${params.ECR_REPOSITORY}"
+                        
+                        echo """
+                        ============================================
+                        Pipeline Configuration
+                        ============================================
+                        AWS Account ID:  ${env.AWS_ACCOUNT_ID}
+                        AWS Region:      ${params.AWS_REGION}
+                        Environment:     ${params.ENVIRONMENT}
+                        Project Name:    ${params.PROJECT_NAME}
+                        ECS Cluster:     ${env.ECS_CLUSTER}
+                        ECS Service:     ${env.ECS_SERVICE}
+                        ECR Registry:    ${env.ECR_REGISTRY}
+                        State Bucket:    ${env.TF_STATE_BUCKET}
+                        Lock Table:      ${env.TF_LOCK_TABLE}
+                        ============================================
+                        """
                     }
-                    
-                    // Generate backend configuration values
-                    env.TF_STATE_BUCKET = "${params.PROJECT_NAME}-tfstate-${env.AWS_ACCOUNT_ID}"
-                    env.TF_LOCK_TABLE = "${params.PROJECT_NAME}-tf-locks"
-                    env.TF_STATE_KEY = "${params.PROJECT_NAME}/${params.ENVIRONMENT}/terraform.tfstate"
-                    
-                    // Auto-generate ECS names if not provided
-                    env.ECS_CLUSTER = params.ECS_CLUSTER?.trim() ?: "${params.PROJECT_NAME}-${params.ENVIRONMENT}-cluster"
-                    env.ECS_SERVICE = params.ECS_SERVICE?.trim() ?: "${params.PROJECT_NAME}-${params.ENVIRONMENT}-service"
-                    
-                    // Set ECR values
-                    env.ECR_REGISTRY = "${env.AWS_ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com"
-                    env.ECR_IMAGE = "${env.ECR_REGISTRY}/${params.ECR_REPOSITORY}"
-                    
-                    echo """
-                    ============================================
-                    Pipeline Configuration
-                    ============================================
-                    AWS Account ID:  ${env.AWS_ACCOUNT_ID}
-                    AWS Region:      ${params.AWS_REGION}
-                    Environment:     ${params.ENVIRONMENT}
-                    Project Name:    ${params.PROJECT_NAME}
-                    ECS Cluster:     ${env.ECS_CLUSTER}
-                    ECS Service:     ${env.ECS_SERVICE}
-                    ECR Registry:    ${env.ECR_REGISTRY}
-                    State Bucket:    ${env.TF_STATE_BUCKET}
-                    Lock Table:      ${env.TF_LOCK_TABLE}
-                    ============================================
-                    """
                 }
             }
         }
@@ -89,12 +92,15 @@ pipeline {
                 expression { params.SETUP_BACKEND == true }
             }
             steps {
-                script {
-                    echo "Setting up Terraform backend..."
-                    sh """
-                        chmod +x scripts/setup-backend.sh
-                        scripts/setup-backend.sh --region ${params.AWS_REGION} --project ${params.PROJECT_NAME}
-                    """
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                    script {
+                        echo "Setting up Terraform backend..."
+                        sh """
+                            export AWS_DEFAULT_REGION=${params.AWS_REGION}
+                            chmod +x scripts/setup-backend.sh
+                            scripts/setup-backend.sh --region ${params.AWS_REGION} --project ${params.PROJECT_NAME}
+                        """
+                    }
                 }
             }
         }
@@ -104,17 +110,20 @@ pipeline {
                 expression { params.DEPLOY_INFRASTRUCTURE == true }
             }
             steps {
-                script {
-                    echo "Deploying infrastructure for ${params.ENVIRONMENT}..."
-                    sh """
-                        chmod +x scripts/deploy-infrastructure.sh
-                        scripts/deploy-infrastructure.sh \
-                            --region ${params.AWS_REGION} \
-                            --project ${params.PROJECT_NAME} \
-                            --environment ${params.ENVIRONMENT} \
-                            --action apply \
-                            --auto-approve
-                    """
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                    script {
+                        echo "Deploying infrastructure for ${params.ENVIRONMENT}..."
+                        sh """
+                            export AWS_DEFAULT_REGION=${params.AWS_REGION}
+                            chmod +x scripts/deploy-infrastructure.sh
+                            scripts/deploy-infrastructure.sh \
+                                --region ${params.AWS_REGION} \
+                                --project ${params.PROJECT_NAME} \
+                                --environment ${params.ENVIRONMENT} \
+                                --action apply \
+                                --auto-approve
+                        """
+                    }
                 }
             }
         }
@@ -245,97 +254,108 @@ pipeline {
 
         stage('Push to ECR') {
             steps {
-                retry(3) {
-                    sh """
-                        aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${env.ECR_REGISTRY}
-                        docker push ${env.ECR_IMAGE}:${env.IMAGE_TAG}
-                        docker push ${env.ECR_IMAGE}:latest
-                    """
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                    retry(3) {
+                        sh """
+                            export AWS_DEFAULT_REGION=${params.AWS_REGION}
+                            aws ecr get-login-password --region ${params.AWS_REGION} | docker login --username AWS --password-stdin ${env.ECR_REGISTRY}
+                            docker push ${env.ECR_IMAGE}:${env.IMAGE_TAG}
+                            docker push ${env.ECR_IMAGE}:latest
+                        """
+                    }
                 }
             }
         }
 
         stage('Deploy to ECS') {
             steps {
-                script {
-                    // Store previous task definition for potential rollback
-                    env.PREVIOUS_TASK_DEF = sh(script: """
-                        aws ecs describe-services --cluster ${env.ECS_CLUSTER} --services ${env.ECS_SERVICE} \
-                            --query 'services[0].taskDefinition' --output text 2>/dev/null || echo 'none'
-                    """, returnStdout: true).trim()
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                    script {
+                        // Set region
+                        env.AWS_DEFAULT_REGION = params.AWS_REGION
+                        
+                        // Store previous task definition for potential rollback
+                        env.PREVIOUS_TASK_DEF = sh(script: """
+                            aws ecs describe-services --cluster ${env.ECS_CLUSTER} --services ${env.ECS_SERVICE} \
+                                --query 'services[0].taskDefinition' --output text 2>/dev/null || echo 'none'
+                        """, returnStdout: true).trim()
 
-                    def taskDef = """
-                    {
-                        "family": "${env.ECS_SERVICE}",
-                        "networkMode": "awsvpc",
-                        "requiresCompatibilities": ["FARGATE"],
-                        "cpu": "256",
-                        "memory": "512",
-                        "executionRoleArn": "arn:aws:iam::${env.AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole",
-                        "containerDefinitions": [{
-                            "name": "${params.ECR_REPOSITORY}",
-                            "image": "${env.ECR_IMAGE}:${env.IMAGE_TAG}",
-                            "essential": true,
-                            "portMappings": [{"containerPort": 3000, "protocol": "tcp"}],
-                            "environment": [
-                                {"name": "NODE_ENV", "value": "production"},
-                                {"name": "APP_VERSION", "value": "${env.IMAGE_TAG}"},
-                                {"name": "ENVIRONMENT", "value": "${params.ENVIRONMENT}"}
-                            ],
-                            "logConfiguration": {
-                                "logDriver": "awslogs",
-                                "options": {
-                                    "awslogs-group": "/ecs/${env.ECS_SERVICE}",
-                                    "awslogs-region": "${params.AWS_REGION}",
-                                    "awslogs-stream-prefix": "ecs",
-                                    "awslogs-create-group": "true"
+                        def taskDef = """
+                        {
+                            "family": "${env.ECS_SERVICE}",
+                            "networkMode": "awsvpc",
+                            "requiresCompatibilities": ["FARGATE"],
+                            "cpu": "256",
+                            "memory": "512",
+                            "executionRoleArn": "arn:aws:iam::${env.AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole",
+                            "containerDefinitions": [{
+                                "name": "${params.ECR_REPOSITORY}",
+                                "image": "${env.ECR_IMAGE}:${env.IMAGE_TAG}",
+                                "essential": true,
+                                "portMappings": [{"containerPort": 3000, "protocol": "tcp"}],
+                                "environment": [
+                                    {"name": "NODE_ENV", "value": "production"},
+                                    {"name": "APP_VERSION", "value": "${env.IMAGE_TAG}"},
+                                    {"name": "ENVIRONMENT", "value": "${params.ENVIRONMENT}"}
+                                ],
+                                "logConfiguration": {
+                                    "logDriver": "awslogs",
+                                    "options": {
+                                        "awslogs-group": "/ecs/${env.ECS_SERVICE}",
+                                        "awslogs-region": "${params.AWS_REGION}",
+                                        "awslogs-stream-prefix": "ecs",
+                                        "awslogs-create-group": "true"
+                                    }
+                                },
+                                "healthCheck": {
+                                    "command": ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"],
+                                    "interval": 30, "timeout": 5, "retries": 3, "startPeriod": 60
                                 }
-                            },
-                            "healthCheck": {
-                                "command": ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"],
-                                "interval": 30, "timeout": 5, "retries": 3, "startPeriod": 60
-                            }
-                        }]
+                            }]
+                        }
+                        """
+                        writeFile file: 'task-definition.json', text: taskDef
+                        
+                        // Archive the rendered task definition
+                        archiveArtifacts artifacts: 'task-definition.json', allowEmptyArchive: false
+                        
+                        env.TASK_DEF_ARN = sh(script: """
+                            aws ecs register-task-definition --cli-input-json file://task-definition.json \
+                                --query 'taskDefinition.taskDefinitionArn' --output text
+                        """, returnStdout: true).trim()
+                        
+                        echo "Registered task definition: ${env.TASK_DEF_ARN}"
+                        
+                        sh """
+                            aws ecs update-service --cluster ${env.ECS_CLUSTER} --service ${env.ECS_SERVICE} \
+                                --task-definition ${env.TASK_DEF_ARN} --force-new-deployment
+                        """
                     }
-                    """
-                    writeFile file: 'task-definition.json', text: taskDef
-                    
-                    // Archive the rendered task definition
-                    archiveArtifacts artifacts: 'task-definition.json', allowEmptyArchive: false
-                    
-                    env.TASK_DEF_ARN = sh(script: """
-                        aws ecs register-task-definition --cli-input-json file://task-definition.json \
-                            --query 'taskDefinition.taskDefinitionArn' --output text
-                    """, returnStdout: true).trim()
-                    
-                    echo "Registered task definition: ${env.TASK_DEF_ARN}"
-                    
-                    sh """
-                        aws ecs update-service --cluster ${env.ECS_CLUSTER} --service ${env.ECS_SERVICE} \
-                            --task-definition ${env.TASK_DEF_ARN} --force-new-deployment
-                    """
                 }
             }
         }
 
         stage('Wait for Deployment') {
             steps {
-                script {
-                    try {
-                        timeout(time: 15, unit: 'MINUTES') {
-                            sh "aws ecs wait services-stable --cluster ${env.ECS_CLUSTER} --services ${env.ECS_SERVICE}"
-                        }
-                        echo "Deployment successful!"
-                    } catch (Exception e) {
-                        echo "Deployment failed! Initiating rollback..."
-                        if (env.PREVIOUS_TASK_DEF && env.PREVIOUS_TASK_DEF != 'none') {
-                            sh """
-                                aws ecs update-service --cluster ${env.ECS_CLUSTER} --service ${env.ECS_SERVICE} \
-                                    --task-definition ${env.PREVIOUS_TASK_DEF} --force-new-deployment
-                            """
-                            error("Deployment failed and rolled back to ${env.PREVIOUS_TASK_DEF}")
-                        } else {
-                            error("Deployment failed - no previous task definition to rollback to")
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                    script {
+                        env.AWS_DEFAULT_REGION = params.AWS_REGION
+                        try {
+                            timeout(time: 15, unit: 'MINUTES') {
+                                sh "aws ecs wait services-stable --cluster ${env.ECS_CLUSTER} --services ${env.ECS_SERVICE}"
+                            }
+                            echo "Deployment successful!"
+                        } catch (Exception e) {
+                            echo "Deployment failed! Initiating rollback..."
+                            if (env.PREVIOUS_TASK_DEF && env.PREVIOUS_TASK_DEF != 'none') {
+                                sh """
+                                    aws ecs update-service --cluster ${env.ECS_CLUSTER} --service ${env.ECS_SERVICE} \
+                                        --task-definition ${env.PREVIOUS_TASK_DEF} --force-new-deployment
+                                """
+                                error("Deployment failed and rolled back to ${env.PREVIOUS_TASK_DEF}")
+                            } else {
+                                error("Deployment failed - no previous task definition to rollback to")
+                            }
                         }
                     }
                 }
