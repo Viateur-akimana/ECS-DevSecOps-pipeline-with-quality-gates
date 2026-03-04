@@ -4,8 +4,27 @@ A security-hardened Jenkins pipeline deploying a Node.js application to AWS ECS 
 
 ---
 
-## 📋 Table of Contents
+##  Project Screenshots
 
+### Jenkins Pipeline execution
+
+![Jenkins Pipeline - Build & Scan](screenshoots/jenkinsfirststages.png)
+![Jenkins Pipeline - Security & Deploy](screenshoots/jenkinlaststages.png)
+
+### SonarQube Code Quality Analysis
+
+![SonarQube Dashboard](screenshoots/sonarqube.png)
+
+### Security Reports & Dashboard
+
+![Snyk Vulnerability Scan](screenshoots/snyk.png)
+![Security Artifacts](screenshoots/artifacts.png)
+
+---
+
+##  Table of Contents
+
+0. [Project Screenshots](#-project-screenshots)
 1. [Quick Start](#-quick-start)
 2. [Prerequisites](#-prerequisites)
 3. [All Required Credentials](#-all-required-credentials)
@@ -18,7 +37,7 @@ A security-hardened Jenkins pipeline deploying a Node.js application to AWS ECS 
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ```bash
 # 1. Clone the repository
@@ -40,7 +59,7 @@ aws configure
 
 ---
 
-## 📦 Prerequisites
+##  Prerequisites
 
 ### Local Machine Requirements
 
@@ -65,7 +84,7 @@ aws configure
 | SonarScanner | 5.x | See installation script below |
 
 <details>
-<summary>📜 Jenkins Agent Setup Script (Click to expand)</summary>
+<summary> Jenkins Agent Setup Script (Click to expand)</summary>
 
 ```bash
 #!/bin/bash
@@ -131,7 +150,7 @@ echo "  sonar-scanner --version"
 
 ---
 
-## 🔐 All Required Credentials
+##  All Required Credentials
 
 ### Overview Table
 
@@ -145,7 +164,7 @@ echo "  sonar-scanner --version"
 
 ---
 
-### 1️⃣ AWS Credentials
+### 1️ AWS Credentials
 
 **What it's for:** Deploying infrastructure, pushing to ECR, deploying to ECS
 
@@ -168,7 +187,7 @@ echo "  sonar-scanner --version"
 
 **Where to put it:**
 
-📍 **Local Machine** (for Terraform):
+ **Local Machine** (for Terraform):
 ```bash
 aws configure
 # AWS Access Key ID: AKIAXXXXXXXXXXXXXXXX
@@ -177,7 +196,7 @@ aws configure
 # Default output: json
 ```
 
-📍 **Jenkins** (for pipeline):
+ **Jenkins** (for pipeline):
 1. Go to **Manage Jenkins** → **Credentials** → **System** → **Global credentials**
 2. Click **Add Credentials**
 3. Fill in:
@@ -190,7 +209,7 @@ aws configure
 
 ---
 
-### 2️⃣ SonarQube Credentials
+### 2️ SonarQube Credentials
 
 **What it's for:** Static Application Security Testing (SAST), code quality analysis
 
@@ -256,7 +275,7 @@ Generate token in SonarQube:
    - **ID:** `sonarqube-token`
    - **Description:** SonarQube Authentication Token
 
-📍 **Configure SonarQube Server in Jenkins:**
+ **Configure SonarQube Server in Jenkins:**
 1. **Manage Jenkins** → **Configure System**
 2. Scroll to **SonarQube servers**
 3. Check **Environment variables**
@@ -268,7 +287,7 @@ Generate token in SonarQube:
 
 ---
 
-### 3️⃣ Snyk Credentials
+### 3️ Snyk Credentials
 
 **What it's for:** Software Composition Analysis (SCA), dependency vulnerability scanning
 
@@ -293,7 +312,7 @@ Generate token in SonarQube:
 
 ---
 
-### 📋 Jenkins Credentials Summary
+###  Jenkins Credentials Summary
 
 After setup, you should have these 4 credentials in Jenkins:
 
@@ -310,7 +329,7 @@ After setup, you should have these 4 credentials in Jenkins:
 
 ---
 
-## 📝 Step-by-Step Setup
+##  Step-by-Step Setup
 
 ### Step 1: Clone the Repository
 
@@ -433,7 +452,7 @@ Follow the [All Required Credentials](#-all-required-credentials) section above 
 
 ---
 
-## ▶️ Running the Pipeline
+##  Running the Pipeline
 
 ### First Run (Setup Infrastructure via Pipeline)
 
@@ -484,7 +503,7 @@ Follow the [All Required Credentials](#-all-required-credentials) section above 
 
 ---
 
-## 🧪 Testing the Application
+##  Testing the Application
 
 ### 1. Get the Application URL
 
@@ -525,7 +544,7 @@ curl http://${ALB_URL}/users
 
 ---
 
-## 🔒 Security Gate Testing
+##  Security Gate Testing
 
 ### Test 1: Vulnerable Dependency (Snyk)
 
@@ -569,7 +588,7 @@ Run pipeline with:
 
 ---
 
-## 🔧 Troubleshooting
+## 🔧Troubleshooting
 
 ### Issue: "AWS Account ID not detected"
 
@@ -643,7 +662,7 @@ SNYK_TOKEN=your-token snyk auth
 
 ---
 
-## 🧹 Cleanup
+##  Cleanup
 
 ### Step 1: Destroy Application Infrastructure
 
@@ -679,7 +698,7 @@ docker system prune -af
 
 ---
 
-## 📊 Architecture Diagram
+## Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -722,7 +741,7 @@ docker system prune -af
 
 ---
 
-## 📚 Quick Reference
+##  Quick Reference
 
 ### Jenkins Credentials
 
